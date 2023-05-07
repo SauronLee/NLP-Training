@@ -101,9 +101,10 @@
 ## NLP备考重点
 
 ### 语言模型相关考点
-    * 语言模型基础：什么是语言模型；语言模型发展史；语言模型结构；预训练语言模型  
-    * 模型优化改进：不同语言模型优缺点；模型优化方法；模型改进趋势  
-    * 模型训练问题：模型压缩；模型优化  
+
+> 语言模型基础：什么是语言模型；语言模型发展史；语言模型结构；预训练语言模型  
+> 模型优化改进：不同语言模型优缺点；模型优化方法；模型改进趋势  
+> 模型训练问题：模型压缩；模型优化  
 
 * 语言模型基础介绍
   * 什么是语言模型：语言建模的目的就是构建该自然语言处理中词序列的分布，然后用于评估某个词序列的概率。如果给定的词序列符合语用习惯则给出高概率，否则给出低概率
@@ -182,12 +183,101 @@ fasttext最早其实是一个文本分类算法，后续加了一些改进来训
     $$F(w_i, w_j, w_k) = \frac{P_{ik}}{P_{jk}}$$  
 
 >* 考点：Glove和word2vec各自有啥优缺点？
-    1，Word2vec面向局部特征，基于滑动窗口，而Glove综合了全局语料。
+    1，Word2vec面向局部特征，基于滑动窗口，而Glove综合了全局语料。  
     2，word2vec可以增量学习，而Glove是由固定语料计算的共现矩阵。
 
+>* 考点：word2vec等方法构建词向量有什么问题？预训练语言模型的优势是什么？
+    1， word embedding等都是独立于上下文的，也就是说无论下有任务是什么，输入的word embedding始终是固定的，这就无法解决一词多义，以及在不同语境下有不同表现的需求  
+    2，ELMo，GPT以及BERT等都是一次多义以及能够适配下游任务，通过预训练和finetune两个阶段来构造context-dependence的词的表示。
 
+>* 考点：ELMo预训练语言模型网络结构？
+    1，ELMo使用双向语言模型来进行预训练，用两个分开的双层LSTM作为encoder，第一层学到的是句法信息，第二层学到的是语义信息。在面对具体下游任务时，首先固定biLM的参数的到一个词的表示，再与上下文无关的词表示（Word2vec，或者charCNN获得的表示）拼接作为模型输入，在反向传播finetune所有参数。
 
+>* 考点：GPT与ELMo的区别？
+    ELMo使用LSTM作为编码器，而GPT开始用的是编码能力更强的transformer
 
+>* 考点：对于Self-attention的理解？与普通attention的区别  
+    如何学习一个更好的序列表示RNN要逐步递归才能获得全局信息，因此一般要双向RNN才比较好；CNN事实上只能获取局部信息，是通过层叠来增大感受野；attention的思路最为粗暴，它一步到位获得了全局信息：
+    $$y_t = f(x_t, A, B) $$
+其中 $A$，$B$ 是另一个序列（矩阵）。如果 $A = B = X$, 那么就称为Self-attention, 它的意思是直接将$x_t$与原来的每个词进行比较，最后算出$y_t$
 
+>* 考点：multi-head attention 与self-attention的联系？
+    这个是google提出的新概念，是attention机制的完善，只是把 $Q$，$K$，$V$通过矩阵映射一下，然后再做Attention，把这个过程重复做 $h$ 次 结果拼接起来就行了
 
+>* 考点：transformer的网络结构
+    1，架构上也是一种encode-decode的架构
+    2，每个block单元都包含自注意力计算模块，前馈网络，残差模块（Add&Norm，恒等映射的残差连接）
+
+>* 考点：Transformer的残差连接和归一化有何作用？
+    1，深层网络会存在梯度消失/爆炸的情况，可以通过Normalization等方式解决，是的模型能够收敛。
+    2，在模型能够收敛的情况下，网络越深，模型的准确率越低，同时，模型的准确率先达到饱和然后迅速下降。这个情况我们称之为网络退化。借助ResNet，我们能够有效训练出更深的网络模型（可以超过1000层），使得网络表现不亚于浅层网络。
+
+>* 考点：BERT和GPT的区别？
+    1，训练数据不同，GPT使用BooksCorpus（800M words）；BERT是BooksCorpus（800M words）加Wikipedia（2500Mwords）
+    2，GPT在训练时没有【CLS】和【SEP】，在下游任务时才有
+    3，GPT在finetuning时加入LM的Loss，而Bert是完全使用任务特定目标函数。
+    4，GPT的lr在两个1阶段保持一致，Bert认为特定任务的lr效果更好
+    5，Bert用mask来实现了双向语言模型，非常巧妙
+    6，预训练除了语言模型，还加入了next Sentence prediction，试图学习更高层面的语言相关性。
+
+>* 考点：BERT中的问题和改进思路  
+    在实际使用中Q，K，V一般具有相同的维度特征（即hidden—size）比如BERT Base里面是 $d$ = 768, $h$ = 12, 映射矩阵为
+    $$W \in R^{d \times (d/h)} $$  
+    也就是说每个Attention head里面是将$d$映射到$d/h$,然后再进行Attention计算，输出也是$d/h$维，最后把$h$个$d/h$维的结果拼接起来，得到一个$d$维的输出。这里的$d/h$通常称为head_size  
+    在Attention中  
+    $$P = softmax (\frac{QK^{T}}{\sqrt{d_k}})$$  
+    可以将P看成一个二元联合分布eg.$N^2$，但是我们的参数量只有$n\times (d/h)$ 这就导致了低秩瓶颈（Low-Rank Bottleneck），解决方法是增大模型的key_size也就是Q，K的尺寸。
+
+>* 考点：相对于NNLM，Word2vec的改进都有哪些
+>* 考点：哈夫曼树的构建方法，在NLP中有啥应用
+>* 考点：分层softmax和负采样的原理和复杂度
+>* 考点：负采样的具体实现方法
+>* 考点：word2vec和glove的区别
+>* 考点：怎样评估词向量的质量
+>* 考点：选出当前query和100万个key词向量相似度的TopK，复杂度尽可能低（faiss）
+>* 考点：预训练模型word2vec-glove-ELMo-GPT-BERT-others的演进，每个模型分别解决什么问题
+
+Transformer
+>* 考点：为什么Transformer可以实现乱序语言模型，怎么实现的
+>* 考点：什么是乱序语言模型
+>* 考点：attention矩阵的mask方式与各种预训练方案的关系
+>* 考点：直接利用预训练bert模型来做seq2seq任务
+>* 考点：为什么要用多头（多个空间学习多种pattern，降低注意力学习的风险）
+>* 考点：为什么Q和K的映射矩阵不相同（关系对称，容易得到单位矩阵）
+>* 考点：为什么注意力权重要除（防止梯度消失）
+>* 考点：为什么用乘性注意力不用加性注意力（乘性计算更小？）
+>* 考点：为什么FFN模块（增加模型的非线性能力）
+>* 考点：Transformer和BERT的位置编码有啥区别（三角函数式和可学习向量）
+>* 考点：残差结构及意义（防止梯度消失和网络退化）
+>* 考点：哪个block中更耗时，哪个更占显存（序列短的时候FFN耗时，长的时候MHA耗时；FFN更占显存）
+>* 考点：Transformer的layerNorm有哪些（post-norm 和 pre-norm）
+>* 考点：Transformer加速（NAR，知识蒸馏，剪枝，动态退出，稀疏注意力，线性注意力）
+>* 考点：attention瓶颈（low rank，talking-head）
+
+## 算法重点考点
+
+一般：要求懂原理，应用
+重点：手撸
+* 最短路算法（一般）：Dijkstra / Floyd / SPFA
+* 拓扑排序算法（一定会考）：Topological Sorting
+* Morris算法（一般）：O(1)额外空间前序遍历
+* 贪心法（重要）：greedy
+* Manacher算法（一般）：求最长回文子串
+* KMP算法（一般）：strstr / indexOf
+* 最小生成树算法（重要）：Minimun Spanning Tree
+* 二分法（一定会考）：Binary Search
+* 分治法（重要）：Divede & Conquer
+* 网络流算法（一般）：Network Flow
+* 希尔排序（一般）：Shell Sort
+* 动态规划（一定会考）：Dynamic Programming
+* 线段树（一般）：Segment Tree
+* 平衡排序二叉树（一般）：Red-black Tree
+* 字典树（重要）：Trie
+* 并查集（重要）：Union Find
+* 跳跃表（一般）：Skip List
+* 哈希表（一定会考）：Hash Table
+* 堆（重要）：Heap
+* KD树（一般）：KD-Tree
+* B树/B+树（一般）：B-Tree / B+ Tree
+* 二叉查找树（一定会考）：Binary Search Tree
 
